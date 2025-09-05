@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Hello, World!</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+      <h1 class="title">Hello World! </h1>
+      <p id="currentTime"></p>
+      <script src="script.js"></script>
+  </body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Abhishek Notes</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f4f4; }
+    header { background: #333; color: #fff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 22px; }
+    nav { display: flex; gap: 15px; }
+    nav a { color: white; text-decoration: none; cursor: pointer; }
+    nav a:hover { text-decoration: underline; }
+    .container { padding: 20px; }
+    .hidden { display: none; }
+    input, button { padding: 8px; margin: 5px 0; width: 100%; }
+    button { background: #333; color: white; border: none; cursor: pointer; }
+    button:hover { background: #555; }
+    .note { background: white; padding: 10px; margin: 10px 0; border-radius: 5px; box-shadow: 0 0 5px rgba(0,0,0,0.2); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Abhishek Notes</h1>
+  <nav id="nav">
+    <a onclick="showPage('registerPage')">Register</a>
+    <a onclick="showPage('loginPage')">Login</a>
+  </nav>
+</header>
+
+<div class="container">
+  <!-- Home Page -->
+  <div id="homePage">
+    <h2>All Notes</h2>
+    <input type="text" id="search" placeholder="Search notes..." onkeyup="searchNotes()">
+    <div id="notesList"></div>
+  </div>
+
+  <!-- Register Page -->
+  <div id="registerPage" class="hidden">
+    <h2>Register</h2>
+    <input type="text" id="regName" placeholder="Name">
+    <input type="email" id="regEmail" placeholder="Email">
+    <input type="password" id="regPassword" placeholder="Set a Password">
+    <button onclick="register()">Register</button>
+  </div>
+
+  <!-- Login Page -->
+  <div id="loginPage" class="hidden">
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p><a onclick="showPage('forgotPage')" style="cursor:pointer;color:blue">Forgot Password?</a></p>
+  </div>
+
+  <!-- Forgot Password -->
+  <div id="forgotPage" class="hidden">
+    <h2>Forgot Password</h2>
+    <input type="email" id="forgotEmail" placeholder="Enter your email">
+    <button onclick="sendOTP()">Send OTP</button>
+    <div id="otpSection" class="hidden">
+      <input type="text" id="otpInput" placeholder="Enter OTP">
+      <input type="password" id="newPassword" placeholder="New Password">
+      <button onclick="resetPassword()">Reset Password</button>
+    </div>
+  </div>
+
+  <!-- Upload Page -->
+  <div id="uploadPage" class="hidden">
+    <h2>Upload Notes</h2>
+    <input type="text" id="noteTitle" placeholder="Subject / Title">
+    <input type="file" id="noteFile">
+    <button onclick="uploadNote()">Upload</button>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" class="hidden">
+    <h2>Admin Panel</h2>
+    <div id="userList"></div>
+  </div>
+</div>
+
+<script>
+  const ownerEmail = "kabhishek57838@gmail.com";
+  const ownerPass = "12345";
+  let currentUser = null;
+  let otpCode = null, otpEmail = null;
+
+  function showPage(id) {
+    document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  function updateNav() {
+    const nav = document.getElementById("nav");
+    if (currentUser) {
+      nav.innerHTML = `
+        <a onclick="showPage('homePage')">Home</a>
+        <a onclick="showPage('uploadPage')">Upload Notes</a>
+        <a onclick="logout()">Logout</a>
+      `;
+      if (currentUser.email === ownerEmail && currentUser.password === ownerPass) {
+        document.getElementById("adminPanel").classList.remove("hidden");
+        loadUsers();
+      } else {
+        document.getElementById("adminPanel").classList.add("hidden");
+      }
+    } else {
+      nav.innerHTML = `
+        <a onclick="showPage('registerPage')">Register</a>
+        <a onclick="showPage('loginPage')">Login</a>
+      `;
+      document.getElementById("adminPanel").classList.add("hidden");
+    }
+  }
+
+  function register() {
+    const name = document.getElementById("regName").value;
+    const email = document.getElementById("regEmail").value;
+    const password = document.getElementById("regPassword").value;
+
+    if (!name || !email || !password) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+    if (users.find(u => u.email === email)) {
+      alert("Email already registered");
+      return;
+    }
+
+    users.push({ name, email, password });
+    localStorage.setItem("users", JSON.stringify(users));
+    alert("Registration successful!");
+    showPage("homePage");
+  }
+
+  function login() {
+    const email = document.getElementById("loginEmail").value;
+    const password = document.getElementById("loginPassword").value;
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+
+    if (email === ownerEmail && password === ownerPass) {
+      currentUser = { email, password, name: "Owner" };
+      alert("Owner login successful!");
+      showPage("homePage");
+      updateNav();
+      showNotes();
+      return;
+    }
+
+    const user = users.find(u => u.email === email && u.password === password);
+    if (!user) {
+      alert("Invalid email or password");
+      return;
+    }
+
+    currentUser = user;
+    alert("Login successful!");
+    showPage("homePage");
+    updateNav();
+    showNotes();
+  }
+
+  function logout() {
+    currentUser = null;
+    updateNav();
+    showPage("homePage");
+  }
+
+  function uploadNote() {
+    if (!currentUser) { alert("Login required"); return; }
+    const title = document.getElementById("noteTitle").value;
+    const fileInput = document.getElementById("noteFile");
+    if (!title || !fileInput.files[0]) {
+      alert("Please add a title and file");
+      return;
+    }
+
+    let notes = JSON.parse(localStorage.getItem("notes")) || [];
+    notes.push({ title, file: fileInput.files[0].name, user: currentUser.email });
+    localStorage.setItem("notes", JSON.stringify(notes));
+    alert("Note uploaded!");
+    showNotes();
+    showPage("homePage");
+  }
+
+  function showNotes() {
+    let notes = JSON.parse(localStorage.getItem("notes")) || [];
+    const list = document.getElementById("notesList");
+    list.innerHTML = "";
+    notes.forEach(n => {
+      const div = document.createElement("div");
+      div.className = "note";
+      div.innerHTML = `<strong>${n.title}</strong> - Uploaded by ${n.user} 
+        <br><button onclick="downloadNote('${n.file}')">Download</button>`;
+      list.appendChild(div);
+    });
+  }
+
+  function searchNotes() {
+    const query = document.getElementById("search").value.toLowerCase();
+    let notes = JSON.parse(localStorage.getItem("notes")) || [];
+    const list = document.getElementById("notesList");
+    list.innerHTML = "";
+    notes.filter(n => n.title.toLowerCase().includes(query)).forEach(n => {
+      const div = document.createElement("div");
+      div.className = "note";
+      div.innerHTML = `<strong>${n.title}</strong> - Uploaded by ${n.user} 
+        <br><button onclick="downloadNote('${n.file}')">Download</button>`;
+      list.appendChild(div);
+    });
+  }
+
+  function downloadNote(filename) {
+    alert("Downloading " + filename + " (demo only)");
+  }
+
+  function loadUsers() {
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+    const userList = document.getElementById("userList");
+    userList.innerHTML = "<h3>Registered Users</h3>";
+    users.forEach(u => {
+      userList.innerHTML += `<p>${u.name} - ${u.email} - ${u.password}</p>`;
+    });
+  }
+
+  // Forgot password system
+  function sendOTP() {
+    const email = document.getElementById("forgotEmail").value;
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+    if (!users.find(u => u.email === email)) {
+      alert("Email not registered");
+      return;
+    }
+    otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+    otpEmail = email;
+    alert("Your OTP is: " + otpCode + " (demo)");
+    document.getElementById("otpSection").classList.remove("hidden");
+  }
+
+  function resetPassword() {
+    const otpInput = document.getElementById("otpInput").value;
+    const newPass = document.getElementById("newPassword").value;
+    if (otpInput !== otpCode) {
+      alert("Invalid OTP");
+      return;
+    }
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+    users = users.map(u => {
+      if (u.email === otpEmail) u.password = newPass;
+      return u;
+    });
+    localStorage.setItem("users", JSON.stringify(users));
+    alert("Password reset successful!");
+    showPage("loginPage");
+  }
+
+  showNotes();
+</script>
+
+</body>
+</html>
